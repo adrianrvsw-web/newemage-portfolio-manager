@@ -26,16 +26,17 @@ import { supabase } from "./supabase";
 const logoUrl = "/logo-newemage.svg";
 
 const categoryConfig = {
-  systems: { label: "Plataformas & Sistemas", icon: Monitor },
-  ecommerce: { label: "Ecommerce", icon: ShoppingCart },
-  industrial: { label: "Corporativo / Industrial", icon: Building2 },
-  impact: { label: "Impacto / ONG / Sostenibilidad", icon: Trees },
-  health: { label: "Salud", icon: HeartPulse },
-  legal: { label: "Legal", icon: Scale },
-  realestate: { label: "Inmobiliario", icon: Landmark },
-  education: { label: "Educación", icon: GraduationCap },
-  media: { label: "Medios / Noticias", icon: Newspaper },
-  other: { label: "Otros", icon: FolderKanban },
+  corporativo: { label: "Corporativo" },
+  educacion: { label: "Educación" },
+  ongs: { label: "ONGs" },
+  plataformas: { label: "Plataformas Digitales" },
+  ecommerce: { label: "E-commerce" },
+  apps: { label: "Apps" },
+  salud: { label: "Salud & Bienestar" },
+  realestate: { label: "Real Estate" },
+  financiero: { label: "Financiero & Legal" },
+  saas: { label: "SaaS" },
+  industria: { label: "Industria & Manufactura" },
 };
 
 const SERVICE_OPTIONS = [
