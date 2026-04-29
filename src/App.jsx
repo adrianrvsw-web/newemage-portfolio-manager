@@ -6,15 +6,6 @@ import {
   Trash2,
   Pencil,
   FolderKanban,
-  Monitor,
-  Building2,
-  HeartPulse,
-  GraduationCap,
-  Scale,
-  ShoppingCart,
-  Landmark,
-  Newspaper,
-  Trees,
   Archive,
   ChevronDown,
   Check,
@@ -56,6 +47,8 @@ const SERVICE_OPTIONS = [
   "Catálogo",
   "Portal de Noticias",
   "Institucional",
+  "Automatización",
+  "Inteligencia Artificial",
 ];
 
 const TECHNOLOGY_OPTIONS = [
@@ -79,13 +72,15 @@ const TECHNOLOGY_OPTIONS = [
   "Figma",
   "AWS",
   "DigitalOcean",
+  "Supabase",
+  "n8n",
 ];
 
 const STATUS_OPTIONS = ["Publicado", "Revisar", "Oculto", "Archivado"];
 
 const emptyProject = {
   name: "",
-  category: "systems",
+  category: "corporativo",
   status: "Revisar",
   successCase: false,
   inPortfolio: true,
@@ -93,6 +88,8 @@ const emptyProject = {
   link: "",
   services: [],
   technologies: [],
+  description: "",
+  detailed_description: "",
   year: "2026",
   lastReview: new Date().toISOString().slice(0, 10),
 };
@@ -165,9 +162,10 @@ function Toggle({ checked, onChange }) {
 
 function Modal({ open, title, onClose, children }) {
   if (!open) return null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[#243454] bg-[#071227] p-6 text-[#eef4ff]">
+      <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-[#243454] bg-[#071227] p-6 text-[#eef4ff]">
         <div className="mb-4 flex items-center justify-between gap-4">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button className={buttonClass("ghost")} onClick={onClose}>
@@ -182,6 +180,11 @@ function Modal({ open, title, onClose, children }) {
 
 function MultiSelectChips({ label, options, values, onChange }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const filteredOptions = options.filter((option) =>
+    option.toLowerCase().includes(query.toLowerCase())
+  );
 
   const toggleValue = (item) => {
     onChange(values.includes(item) ? values.filter((v) => v !== item) : [...values, item]);
@@ -193,43 +196,8 @@ function MultiSelectChips({ label, options, values, onChange }) {
         {label}
       </label>
 
-      <div className="relative">
-        <button
-          type="button"
-          className={`${inputClass()} flex items-center justify-between text-left`}
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span className={values.length ? "text-[#eef4ff]" : "text-[#60708d]"}>
-            {values.length ? `${values.length} seleccionados` : `Seleccionar ${label.toLowerCase()}`}
-          </span>
-          <ChevronDown size={16} className="text-[#8ea0bf]" />
-        </button>
-
-        {open && (
-          <div className="absolute z-20 mt-2 max-h-64 w-full overflow-auto rounded-2xl border border-[#243454] bg-[#071227] p-2 shadow-2xl">
-            {options.map((item) => {
-              const active = values.includes(item);
-              return (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => toggleValue(item)}
-                  className={cls(
-                    "mb-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition last:mb-0",
-                    active ? "bg-[#142444] text-white" : "text-[#c7d3ea] hover:bg-[#101d38]"
-                  )}
-                >
-                  <span>{item}</span>
-                  {active ? <Check size={14} className="text-[#8fd3ff]" /> : <span className="h-4 w-4" />}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
       {!!values.length && (
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mb-2 flex flex-wrap gap-2">
           {values.map((item) => (
             <button
               key={item}
@@ -243,6 +211,85 @@ function MultiSelectChips({ label, options, values, onChange }) {
           ))}
         </div>
       )}
+
+      <div className="relative">
+        <button
+          type="button"
+          className={`${inputClass()} flex items-center justify-between text-left`}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <span className={values.length ? "text-[#eef4ff]" : "text-[#60708d]"}>
+            {values.length
+              ? `${values.length} seleccionado${values.length === 1 ? "" : "s"}`
+              : `Seleccionar ${label.toLowerCase()}`}
+          </span>
+          <ChevronDown size={16} className="text-[#8ea0bf]" />
+        </button>
+
+        {open && (
+          <div className="absolute z-20 mt-2 w-full rounded-2xl border border-[#243454] bg-[#071227] p-3 shadow-2xl">
+            <div className="mb-3 flex gap-2">
+              <input
+                className={inputClass()}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={`Buscar ${label.toLowerCase()}...`}
+              />
+
+              {!!values.length && (
+                <button
+                  type="button"
+                  onClick={() => onChange([])}
+                  className="rounded-xl border border-[#3b2730] bg-[#1a1220] px-3 text-xs font-medium text-[#ff9fb0] hover:bg-[#25182b]"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+
+            <div className="max-h-52 overflow-auto pr-1">
+              {filteredOptions.map((item) => {
+                const active = values.includes(item);
+
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => toggleValue(item)}
+                    className={cls(
+                      "mb-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm transition last:mb-0",
+                      active ? "bg-[#142444] text-white" : "text-[#c7d3ea] hover:bg-[#101d38]"
+                    )}
+                  >
+                    <span>{item}</span>
+                    {active ? (
+                      <Check size={14} className="text-[#8fd3ff]" />
+                    ) : (
+                      <span className="h-4 w-4 rounded border border-[#2a3a59]" />
+                    )}
+                  </button>
+                );
+              })}
+
+              {!filteredOptions.length && (
+                <p className="px-3 py-4 text-center text-sm text-[#7f90ad]">
+                  No hay resultados.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-3 flex justify-end border-t border-[#20304e] pt-3">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className={buttonClass("secondary")}
+              >
+                Listo
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -268,6 +315,8 @@ function toCsv(rows) {
     "link",
     "services",
     "technologies",
+    "description",
+    "detailed_description",
     "year",
     "lastReview",
   ];
@@ -290,7 +339,7 @@ function normalizeProject(project) {
   return {
     id: project.id,
     name: project.name ?? "",
-    category: project.category ?? "systems",
+    category: project.category ?? "corporativo",
     status: project.status ?? "Revisar",
     successCase: project.success_case ?? project.successCase ?? project.featured ?? false,
     inPortfolio: project.in_portfolio ?? project.inPortfolio ?? false,
@@ -298,11 +347,11 @@ function normalizeProject(project) {
     link: project.link ?? "",
     services: Array.isArray(project.services) ? project.services : [],
     technologies: Array.isArray(project.technologies) ? project.technologies : [],
+    description: project.description ?? "",
+    detailed_description: project.detailed_description ?? "",
     year: project.year ? String(project.year) : "",
     lastReview:
-      project.last_review ??
-      project.lastReview ??
-      new Date().toISOString().slice(0, 10),
+      project.last_review ?? project.lastReview ?? new Date().toISOString().slice(0, 10),
   };
 }
 
@@ -317,6 +366,8 @@ function projectToDbPayload(project) {
     in_portfolio: !!project.inPortfolio,
     services: project.services || [],
     technologies: project.technologies || [],
+    description: project.description || "",
+    detailed_description: project.detailed_description || "",
     year: project.year ? Number(project.year) : null,
     last_review: project.lastReview || null,
   };
@@ -348,6 +399,7 @@ function SimpleForm({ draft, setDraft, onSave, editing }) {
             className={inputClass()}
           />
         </div>
+
         <div>
           <label className={labelClass}>Cliente</label>
           <input
@@ -423,6 +475,26 @@ function SimpleForm({ draft, setDraft, onSave, editing }) {
         onChange={(values) => setDraft({ ...draft, technologies: values })}
       />
 
+      <div>
+        <label className={labelClass}>Descripción general</label>
+        <textarea
+          value={draft.description || ""}
+          onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+          className={`${inputClass()} min-h-[80px] resize-y`}
+          placeholder="Resumen corto para cards/listados."
+        />
+      </div>
+
+      <div>
+        <label className={labelClass}>Descripción detallada</label>
+        <textarea
+          value={draft.detailed_description || ""}
+          onChange={(e) => setDraft({ ...draft, detailed_description: e.target.value })}
+          className={`${inputClass()} min-h-[140px] resize-y`}
+          placeholder="Texto más amplio para página de proyecto, SEO o WordPress."
+        />
+      </div>
+
       <div className="grid gap-3 md:grid-cols-1">
         <div className={shellCard("flex items-center justify-between p-4")}>
           <span className="text-sm">Caso de éxito</span>
@@ -475,14 +547,19 @@ export default function App() {
   const filteredProjects = useMemo(() => {
     return projects.filter((project) => {
       const term = search.toLowerCase();
+
       const matchesSearch =
         project.name.toLowerCase().includes(term) ||
         project.client.toLowerCase().includes(term) ||
+        project.description.toLowerCase().includes(term) ||
+        project.detailed_description.toLowerCase().includes(term) ||
         project.services.join(" ").toLowerCase().includes(term) ||
         project.technologies.join(" ").toLowerCase().includes(term);
 
       const matchesCategory =
-        categoryFilter === "all" || project.category === categoryFilter;
+        categoryFilter === "all" ||
+        project.category === categoryFilter ||
+        (categoryFilter === "success_cases" && project.successCase);
 
       return matchesSearch && matchesCategory;
     });
@@ -503,6 +580,8 @@ export default function App() {
       ...emptyProject,
       services: [],
       technologies: [],
+      description: "",
+      detailed_description: "",
       lastReview: new Date().toISOString().slice(0, 10),
     });
     setDialogOpen(true);
@@ -518,6 +597,8 @@ export default function App() {
       link: project.link ?? "",
       services: Array.isArray(project.services) ? project.services : [],
       technologies: Array.isArray(project.technologies) ? project.technologies : [],
+      description: project.description ?? "",
+      detailed_description: project.detailed_description ?? "",
     });
     setDialogOpen(true);
   };
@@ -687,7 +768,7 @@ export default function App() {
             </div>
 
             <section className={shellCard("p-5")}>
-              <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr_auto]">
+              <div className="grid gap-4 lg:grid-cols-[1.2fr_0.9fr_0.8fr_auto]">
                 <div>
                   <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7f90ad]">
                     Buscar
@@ -701,14 +782,14 @@ export default function App() {
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
                       className={`${inputClass()} pl-9`}
-                      placeholder="Proyecto, cliente, servicio..."
+                      placeholder="Proyecto, cliente, descripción..."
                     />
                   </div>
                 </div>
 
                 <div>
                   <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7f90ad]">
-                    Categoría
+                    Categoría / filtro
                   </label>
                   <select
                     value={categoryFilter}
@@ -716,6 +797,7 @@ export default function App() {
                     className={inputClass()}
                   >
                     <option value="all">Todas</option>
+                    <option value="success_cases">Casos de éxito</option>
                     {Object.entries(categoryConfig).map(([key, cfg]) => (
                       <option key={key} value={key}>
                         {cfg.label}
@@ -743,14 +825,14 @@ export default function App() {
 
             <section className="mt-6 space-y-4">
               {filteredProjects.map((project) => {
-                const CategoryIcon = categoryConfig[project.category]?.icon || FolderKanban;
+                const categoryLabel = categoryConfig[project.category]?.label || "Sin categoría";
 
                 return (
                   <div key={project.id} className={shellCard("p-4")}>
                     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <CategoryIcon size={15} className="text-orange-300" />
+                          <FolderKanban size={15} className="text-orange-300" />
                           <h3 className="text-base font-semibold">{project.name}</h3>
 
                           {project.successCase && (
@@ -777,8 +859,14 @@ export default function App() {
                         </div>
 
                         <p className="mt-1 text-sm text-[#8ea0bf]">
-                          {project.client} · {categoryConfig[project.category]?.label} · {project.year}
+                          {project.client} · {categoryLabel} · {project.year}
                         </p>
+
+                        {project.description && (
+                          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#c7d3ea]">
+                            {project.description}
+                          </p>
+                        )}
 
                         <div className="mt-2 flex flex-wrap gap-2">
                           {(project.services || []).map((service) => (
