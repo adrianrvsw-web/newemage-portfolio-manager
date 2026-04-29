@@ -11,6 +11,9 @@ import {
   Check,
   X,
   Briefcase,
+  Eye,
+  Clipboard,
+  Copy,
 } from "lucide-react";
 import { supabase } from "./supabase";
 
@@ -373,12 +376,178 @@ function projectToDbPayload(project) {
   };
 }
 
+function projectPlainText(project) {
+  const categoryLabel = categoryConfig[project.category]?.label || "Sin categoría";
+
+  return [
+    `Proyecto: ${project.name || ""}`,
+    `Cliente: ${project.client || ""}`,
+    `Categoría: ${categoryLabel}`,
+    `Estado: ${project.status || ""}`,
+    `En portafolio: ${project.inPortfolio ? "Sí" : "No"}`,
+    `Caso de éxito: ${project.successCase ? "Sí" : "No"}`,
+    `Año: ${project.year || ""}`,
+    `Link: ${project.link || ""}`,
+    `Servicios: ${(project.services || []).join(", ")}`,
+    `Tecnologías: ${(project.technologies || []).join(", ")}`,
+    "",
+    "Descripción general:",
+    project.description || "",
+    "",
+    "Descripción detallada:",
+    project.detailed_description || "",
+  ].join("\n");
+}
+
 function StatCard({ label, value }) {
   return (
     <div className={shellCard("flex min-h-[78px] items-center justify-center px-3 py-3 text-center")}>
       <div>
         <p className="text-[10px] uppercase tracking-[0.18em] text-[#7f90ad]">{label}</p>
         <p className="mt-2 text-[24px] font-semibold leading-none">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function CopyButton({ value, label = "Copiar", onCopy }) {
+  const hasValue = String(value ?? "").trim().length > 0;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onCopy(value, label)}
+      disabled={!hasValue}
+      className={cls(
+        "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition",
+        hasValue
+          ? "border-[#2a3a59] bg-[#101d38] text-[#d8e3f7] hover:bg-[#142444]"
+          : "cursor-not-allowed border-[#1c2a46] bg-[#0a1428] text-[#51617e]"
+      )}
+    >
+      <Copy size={13} />
+      {label}
+    </button>
+  );
+}
+
+function CopyField({ title, value, onCopy, multiline = false }) {
+  const displayValue = Array.isArray(value) ? value.join(", ") : value || "—";
+  const copyValue = displayValue === "—" ? "" : displayValue;
+
+  return (
+    <div className="rounded-2xl border border-[#20304e] bg-[#0c1730] p-4">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7f90ad]">
+          {title}
+        </p>
+        <CopyButton value={copyValue} label="Copiar" onCopy={onCopy} />
+      </div>
+
+      <p
+        className={cls(
+          "text-sm leading-6 text-[#eef4ff]",
+          multiline ? "whitespace-pre-wrap" : "break-words"
+        )}
+      >
+        {displayValue}
+      </p>
+    </div>
+  );
+}
+
+function ProjectDetailModal({ project, onClose }) {
+  const [copied, setCopied] = useState("");
+
+  if (!project) return null;
+
+  const categoryLabel = categoryConfig[project.category]?.label || "Sin categoría";
+
+  const copyText = async (value, label) => {
+    const text = String(value ?? "");
+
+    if (!text.trim()) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (error) {
+      console.error("No se pudo copiar con navigator.clipboard:", error);
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+
+    setCopied(label);
+    window.setTimeout(() => setCopied(""), 1400);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-[#243454] bg-[#071227] p-6 text-[#eef4ff] shadow-2xl">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4 border-b border-[#20304e] pb-5">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7f90ad]">
+              Vista completa
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">{project.name}</h2>
+            <p className="mt-1 text-sm text-[#8ea0bf]">
+              {project.client || "Sin cliente"} · {categoryLabel} · {project.year || "Sin año"}
+            </p>
+
+            {copied && (
+              <p className="mt-3 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
+                Copiado: {copied}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => copyText(projectPlainText(project), "todo el proyecto")}
+              className={buttonClass("primary")}
+            >
+              <Clipboard size={16} />
+              Copiar todo
+            </button>
+
+            <button type="button" className={buttonClass("ghost")} onClick={onClose}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <CopyField title="Nombre del proyecto" value={project.name} onCopy={copyText} />
+          <CopyField title="Cliente" value={project.client} onCopy={copyText} />
+          <CopyField title="Categoría" value={categoryLabel} onCopy={copyText} />
+          <CopyField title="Estado" value={project.status} onCopy={copyText} />
+          <CopyField title="En portafolio" value={project.inPortfolio ? "Sí" : "No"} onCopy={copyText} />
+          <CopyField title="Caso de éxito" value={project.successCase ? "Sí" : "No"} onCopy={copyText} />
+          <CopyField title="Año" value={project.year} onCopy={copyText} />
+          <CopyField title="Link" value={project.link} onCopy={copyText} />
+          <CopyField title="Servicios" value={project.services || []} onCopy={copyText} />
+          <CopyField title="Tecnologías" value={project.technologies || []} onCopy={copyText} />
+          <div className="md:col-span-2">
+            <CopyField
+              title="Descripción general"
+              value={project.description}
+              onCopy={copyText}
+              multiline
+            />
+          </div>
+          <div className="md:col-span-2">
+            <CopyField
+              title="Descripción detallada"
+              value={project.detailed_description}
+              onCopy={copyText}
+              multiline
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -521,6 +690,7 @@ export default function App() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState(emptyProject);
+  const [selectedProject, setSelectedProject] = useState(null);
 
   useEffect(() => {
     async function loadProjects() {
@@ -667,7 +837,10 @@ export default function App() {
       return;
     }
 
-    setProjects((prev) => prev.map((p) => (p.id === id ? normalizeProject(data) : p)));
+    const normalized = normalizeProject(data);
+
+    setProjects((prev) => prev.map((p) => (p.id === id ? normalized : p)));
+    setSelectedProject((current) => (current && current.id === id ? normalized : current));
   };
 
   const togglePortfolio = async (project) => {
@@ -708,6 +881,7 @@ export default function App() {
     }
 
     setProjects((prev) => prev.filter((p) => p.id !== id));
+    setSelectedProject((current) => (current && current.id === id ? null : current));
   };
 
   const exportCsv = () => downloadFile("newemage-portfolio.csv", toCsv(projects));
@@ -906,6 +1080,13 @@ export default function App() {
 
                       <div className="flex flex-wrap gap-2 lg:justify-end">
                         <button
+                          className={buttonClass("secondary")}
+                          onClick={() => setSelectedProject(project)}
+                        >
+                          <Eye size={16} /> Ver completo
+                        </button>
+
+                        <button
                           className={cls(
                             "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition border",
                             project.inPortfolio
@@ -973,6 +1154,11 @@ export default function App() {
         />
         {saving && <p className="mt-4 text-sm text-[#8ea0bf]">Guardando...</p>}
       </Modal>
+
+      <ProjectDetailModal
+        project={selectedProject}
+        onClose={() => setSelectedProject(null)}
+      />
     </div>
   );
 }
