@@ -12,9 +12,7 @@ import {
   X,
   Briefcase,
   Eye,
-  Clipboard,
   Copy,
-  ArrowUpDown,
 } from "lucide-react";
 import { supabase } from "./supabase";
 
@@ -127,20 +125,20 @@ function inputClass() {
 }
 
 function normalizeStatus(status) {
-  if (status === "Revisar") return "Pendiente";
+  if (!status || status === "Revisar") return "Pendiente";
   if (status === "Oculto") return "Archivado";
-  return status || "Pendiente";
+  return status;
 }
 
 function statusPillClass(status) {
-  const normalizedStatus = normalizeStatus(status);
+  const normalized = normalizeStatus(status);
   const map = {
     Publicado: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
     Pendiente: "border-amber-500/30 bg-amber-500/10 text-amber-300",
     Actualizar: "border-sky-500/30 bg-sky-500/10 text-sky-300",
     Archivado: "border-rose-500/30 bg-rose-500/10 text-rose-300",
   };
-  return map[normalizedStatus] || "border-[#29395a] bg-[#101d38] text-[#c7d3ea]";
+  return map[normalized] || "border-[#29395a] bg-[#101d38] text-[#c7d3ea]";
 }
 
 function badgeClass(type = "default") {
@@ -149,6 +147,16 @@ function badgeClass(type = "default") {
     successCase: "border-0 bg-[#3d2b13] text-[#ffca8a]",
   };
   return `inline-flex items-center rounded-full px-3 py-1 text-xs ${map[type]}`;
+}
+
+function statusPriority(status) {
+  const order = {
+    Pendiente: 0,
+    Actualizar: 1,
+    Publicado: 2,
+    Archivado: 3,
+  };
+  return order[normalizeStatus(status)] ?? 9;
 }
 
 function Toggle({ checked, onChange }) {
@@ -347,11 +355,13 @@ function toCsv(rows) {
 }
 
 function normalizeProject(project) {
+  const normalizedStatus = normalizeStatus(project.status);
+
   return {
     id: project.id,
     name: project.name ?? "",
     category: project.category ?? "corporativo",
-    status: normalizeStatus(project.status),
+    status: normalizedStatus,
     successCase: project.success_case ?? project.successCase ?? project.featured ?? false,
     inPortfolio: project.in_portfolio ?? project.inPortfolio ?? false,
     client: project.client ?? "",
@@ -363,7 +373,6 @@ function normalizeProject(project) {
     year: project.year ? String(project.year) : "",
     lastReview:
       project.last_review ?? project.lastReview ?? new Date().toISOString().slice(0, 10),
-    createdAt: project.created_at ?? project.createdAt ?? "",
   };
 }
 
@@ -385,29 +394,6 @@ function projectToDbPayload(project) {
   };
 }
 
-function projectPlainText(project) {
-  const categoryLabel = categoryConfig[project.category]?.label || "Sin categoría";
-
-  return [
-    `Proyecto: ${project.name || ""}`,
-    `Cliente: ${project.client || ""}`,
-    `Categoría: ${categoryLabel}`,
-    `Estado: ${project.status || ""}`,
-    `En portafolio: ${project.inPortfolio ? "Sí" : "No"}`,
-    `Caso de éxito: ${project.successCase ? "Sí" : "No"}`,
-    `Año: ${project.year || ""}`,
-    `Link: ${project.link || ""}`,
-    `Servicios: ${(project.services || []).join(", ")}`,
-    `Tecnologías: ${(project.technologies || []).join(", ")}`,
-    "",
-    "Descripción general:",
-    project.description || "",
-    "",
-    "Descripción detallada:",
-    project.detailed_description || "",
-  ].join("\n");
-}
-
 function StatCard({ label, value }) {
   return (
     <div className={shellCard("flex min-h-[78px] items-center justify-center px-3 py-3 text-center")}>
@@ -419,50 +405,62 @@ function StatCard({ label, value }) {
   );
 }
 
-function CopyButton({ value, label = "Copiar", onCopy }) {
-  const hasValue = String(value ?? "").trim().length > 0;
+function CopyButton({ value, onCopy }) {
+  if (!value) return null;
 
   return (
     <button
       type="button"
-      onClick={() => onCopy(value, label)}
-      disabled={!hasValue}
-      className={cls(
-        "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition",
-        hasValue
-          ? "border-[#2a3a59] bg-[#101d38] text-[#d8e3f7] hover:bg-[#142444]"
-          : "cursor-not-allowed border-[#1c2a46] bg-[#0a1428] text-[#51617e]"
-      )}
+      onClick={() => onCopy(value)}
+      className="inline-flex items-center gap-2 rounded-lg border border-[#2a3a59] bg-[#101d38] px-3 py-1.5 text-xs text-[#d8e3f7] hover:bg-[#142444]"
     >
       <Copy size={13} />
-      {label}
+      Copiar
     </button>
   );
 }
 
-function CopyField({ title, value, onCopy, multiline = false }) {
-  const displayValue = Array.isArray(value) ? value.join(", ") : value || "—";
-  const copyValue = displayValue === "—" ? "" : displayValue;
+function DetailRow({ label, value, onCopy, multiline = false }) {
+  const displayValue = Array.isArray(value) ? value.join(", ") : value;
 
   return (
     <div className="rounded-2xl border border-[#20304e] bg-[#0c1730] p-4">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7f90ad]">
-          {title}
-        </p>
-        <CopyButton value={copyValue} label="Copiar" onCopy={onCopy} />
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7f90ad]">{label}</p>
+        <CopyButton value={displayValue} onCopy={onCopy} />
       </div>
-
-      <p
-        className={cls(
-          "text-sm leading-6 text-[#eef4ff]",
-          multiline ? "whitespace-pre-wrap" : "break-words"
-        )}
-      >
-        {displayValue}
-      </p>
+      {displayValue ? (
+        <p className={cls("text-sm text-[#eef4ff]", multiline && "whitespace-pre-wrap leading-7")}>
+          {displayValue}
+        </p>
+      ) : (
+        <p className="text-sm text-[#60708d]">Sin información</p>
+      )}
     </div>
   );
+}
+
+function buildProjectText(project) {
+  const categoryLabel = categoryConfig[project.category]?.label || "Sin categoría";
+
+  return [
+    `Proyecto: ${project.name}`,
+    `Cliente: ${project.client || ""}`,
+    `Categoría: ${categoryLabel}`,
+    `Estado: ${project.status}`,
+    `Año: ${project.year || ""}`,
+    `Link: ${project.link || ""}`,
+    `Caso de éxito: ${project.successCase ? "Sí" : "No"}`,
+    `En portafolio: ${project.inPortfolio ? "Sí" : "No"}`,
+    `Servicios: ${(project.services || []).join(", ")}`,
+    `Tecnologías: ${(project.technologies || []).join(", ")}`,
+    "",
+    "Descripción general:",
+    project.description || "",
+    "",
+    "Descripción detallada:",
+    project.detailed_description || "",
+  ].join("\n");
 }
 
 function ProjectDetailModal({ project, onClose }) {
@@ -472,90 +470,69 @@ function ProjectDetailModal({ project, onClose }) {
 
   const categoryLabel = categoryConfig[project.category]?.label || "Sin categoría";
 
-  const copyText = async (value, label) => {
-    const text = String(value ?? "");
-
-    if (!text.trim()) return;
-
+  const copyToClipboard = async (value, label = "Campo") => {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(String(value ?? ""));
+      setCopied(label);
+      setTimeout(() => setCopied(""), 1600);
     } catch (error) {
-      console.error("No se pudo copiar con navigator.clipboard:", error);
-      const textarea = document.createElement("textarea");
-      textarea.value = text;
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
+      console.error("No se pudo copiar:", error);
     }
-
-    setCopied(label);
-    window.setTimeout(() => setCopied(""), 1400);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-[#243454] bg-[#071227] p-6 text-[#eef4ff] shadow-2xl">
-        <div className="mb-5 flex flex-wrap items-start justify-between gap-4 border-b border-[#20304e] pb-5">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#7f90ad]">
-              Vista completa
-            </p>
+            <p className="text-[10px] uppercase tracking-[0.22em] text-[#7f90ad]">Vista completa</p>
             <h2 className="mt-2 text-2xl font-semibold text-white">{project.name}</h2>
             <p className="mt-1 text-sm text-[#8ea0bf]">
               {project.client || "Sin cliente"} · {categoryLabel} · {project.year || "Sin año"}
             </p>
-
-            {copied && (
-              <p className="mt-3 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300">
-                Copiado: {copied}
-              </p>
-            )}
           </div>
 
           <div className="flex flex-wrap gap-2">
+            {copied && (
+              <span className="inline-flex items-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+                Copiado: {copied}
+              </span>
+            )}
             <button
               type="button"
-              onClick={() => copyText(projectPlainText(project), "todo el proyecto")}
+              onClick={() => copyToClipboard(buildProjectText(project), "Todo")}
               className={buttonClass("primary")}
             >
-              <Clipboard size={16} />
+              <Copy size={16} />
               Copiar todo
             </button>
-
-            <button type="button" className={buttonClass("ghost")} onClick={onClose}>
+            <button type="button" onClick={onClose} className={buttonClass("secondary")}>
               Cerrar
             </button>
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <CopyField title="Nombre del proyecto" value={project.name} onCopy={copyText} />
-          <CopyField title="Cliente" value={project.client} onCopy={copyText} />
-          <CopyField title="Categoría" value={categoryLabel} onCopy={copyText} />
-          <CopyField title="Estado" value={project.status} onCopy={copyText} />
-          <CopyField title="En portafolio" value={project.inPortfolio ? "Sí" : "No"} onCopy={copyText} />
-          <CopyField title="Caso de éxito" value={project.successCase ? "Sí" : "No"} onCopy={copyText} />
-          <CopyField title="Año" value={project.year} onCopy={copyText} />
-          <CopyField title="Link" value={project.link} onCopy={copyText} />
-          <CopyField title="Servicios" value={project.services || []} onCopy={copyText} />
-          <CopyField title="Tecnologías" value={project.technologies || []} onCopy={copyText} />
-          <div className="md:col-span-2">
-            <CopyField
-              title="Descripción general"
-              value={project.description}
-              onCopy={copyText}
-              multiline
-            />
-          </div>
-          <div className="md:col-span-2">
-            <CopyField
-              title="Descripción detallada"
-              value={project.detailed_description}
-              onCopy={copyText}
-              multiline
-            />
-          </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <DetailRow label="Proyecto" value={project.name} onCopy={(v) => copyToClipboard(v, "Proyecto")} />
+          <DetailRow label="Cliente" value={project.client} onCopy={(v) => copyToClipboard(v, "Cliente")} />
+          <DetailRow label="Categoría" value={categoryLabel} onCopy={(v) => copyToClipboard(v, "Categoría")} />
+          <DetailRow label="Estado" value={project.status} onCopy={(v) => copyToClipboard(v, "Estado")} />
+          <DetailRow label="Año" value={project.year} onCopy={(v) => copyToClipboard(v, "Año")} />
+          <DetailRow label="Link" value={project.link} onCopy={(v) => copyToClipboard(v, "Link")} />
+          <DetailRow label="Servicios" value={project.services} onCopy={(v) => copyToClipboard(v, "Servicios")} />
+          <DetailRow label="Tecnologías" value={project.technologies} onCopy={(v) => copyToClipboard(v, "Tecnologías")} />
+          <DetailRow
+            label="Descripción general"
+            value={project.description}
+            onCopy={(v) => copyToClipboard(v, "Descripción general")}
+            multiline
+          />
+          <DetailRow
+            label="Descripción detallada"
+            value={project.detailed_description}
+            onCopy={(v) => copyToClipboard(v, "Descripción detallada")}
+            multiline
+          />
         </div>
       </div>
     </div>
@@ -696,7 +673,8 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortOrder, setSortOrder] = useState("newest");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortOption, setSortOption] = useState("priority_recent");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState(emptyProject);
@@ -725,7 +703,7 @@ export default function App() {
   }, []);
 
   const filteredProjects = useMemo(() => {
-    const filtered = projects.filter((project) => {
+    const result = projects.filter((project) => {
       const term = search.toLowerCase();
 
       const matchesSearch =
@@ -741,39 +719,39 @@ export default function App() {
         project.category === categoryFilter ||
         (categoryFilter === "success_cases" && project.successCase);
 
-      return matchesSearch && matchesCategory;
+      const matchesStatus =
+        statusFilter === "all" || normalizeStatus(project.status) === statusFilter;
+
+      return matchesSearch && matchesCategory && matchesStatus;
     });
 
-    return [...filtered].sort((a, b) => {
-      if (sortOrder === "oldest") {
-        return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
-      }
+    const sorted = [...result];
 
-      if (sortOrder === "year_desc") {
+    sorted.sort((a, b) => {
+      if (sortOption === "priority_recent") {
+        const statusDiff = statusPriority(a.status) - statusPriority(b.status);
+        if (statusDiff !== 0) return statusDiff;
         return Number(b.year || 0) - Number(a.year || 0);
       }
 
-      if (sortOrder === "year_asc") {
-        return Number(a.year || 0) - Number(b.year || 0);
-      }
+      if (sortOption === "recent") return Number(b.year || 0) - Number(a.year || 0);
+      if (sortOption === "oldest") return Number(a.year || 0) - Number(b.year || 0);
+      if (sortOption === "az") return a.name.localeCompare(b.name);
+      if (sortOption === "za") return b.name.localeCompare(a.name);
 
-      if (sortOrder === "az") {
-        return a.name.localeCompare(b.name, "es", { sensitivity: "base" });
-      }
-
-      if (sortOrder === "za") {
-        return b.name.localeCompare(a.name, "es", { sensitivity: "base" });
-      }
-
-      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      return 0;
     });
-  }, [projects, search, categoryFilter, sortOrder]);
+
+    return sorted;
+  }, [projects, search, categoryFilter, statusFilter, sortOption]);
 
   const stats = useMemo(
     () => ({
       total: projects.length,
       published: projects.filter((p) => p.inPortfolio).length,
       successCases: projects.filter((p) => p.successCase).length,
+      pending: projects.filter((p) => normalizeStatus(p.status) === "Pendiente").length,
+      update: projects.filter((p) => normalizeStatus(p.status) === "Actualizar").length,
     }),
     [projects]
   );
@@ -795,8 +773,8 @@ export default function App() {
     setEditingId(project.id);
     setDraft({
       ...project,
-      successCase: project.successCase ?? false,
       status: normalizeStatus(project.status),
+      successCase: project.successCase ?? false,
       client: project.client ?? "",
       link: project.link ?? "",
       services: Array.isArray(project.services) ? project.services : [],
@@ -855,7 +833,7 @@ export default function App() {
   const updateProjectField = async (id, partial) => {
     const dbPartial = {};
 
-    if ("status" in partial) dbPartial.status = partial.status;
+    if ("status" in partial) dbPartial.status = normalizeStatus(partial.status);
     if ("successCase" in partial) dbPartial.success_case = partial.successCase;
     if ("inPortfolio" in partial) dbPartial.in_portfolio = partial.inPortfolio;
 
@@ -871,19 +849,15 @@ export default function App() {
       return;
     }
 
-    const normalized = normalizeProject(data);
-
-    setProjects((prev) => prev.map((p) => (p.id === id ? normalized : p)));
-    setSelectedProject((current) => (current && current.id === id ? normalized : current));
+    setProjects((prev) => prev.map((p) => (p.id === id ? normalizeProject(data) : p)));
   };
 
   const togglePortfolio = async (project) => {
     const nextInPortfolio = !project.inPortfolio;
-    const currentStatus = normalizeStatus(project.status);
     const nextStatus = nextInPortfolio
-      ? currentStatus === "Archivado"
+      ? normalizeStatus(project.status) === "Archivado"
         ? "Publicado"
-        : currentStatus
+        : normalizeStatus(project.status)
       : "Archivado";
 
     await updateProjectField(project.id, {
@@ -899,11 +873,11 @@ export default function App() {
   };
 
   const changeStatus = async (project, nextStatus) => {
-    const normalizedStatus = normalizeStatus(nextStatus);
-    const nextInPortfolio = normalizedStatus === "Archivado" ? false : project.inPortfolio;
+    const normalized = normalizeStatus(nextStatus);
+    const nextInPortfolio = normalized === "Archivado" ? false : project.inPortfolio;
 
     await updateProjectField(project.id, {
-      status: normalizedStatus,
+      status: normalized,
       inPortfolio: nextInPortfolio,
     });
   };
@@ -917,7 +891,6 @@ export default function App() {
     }
 
     setProjects((prev) => prev.filter((p) => p.id !== id));
-    setSelectedProject((current) => (current && current.id === id ? null : current));
   };
 
   const exportCsv = () => downloadFile("newemage-portfolio.csv", toCsv(projects));
@@ -957,7 +930,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="p-4">
+          <div className="grid gap-3 p-4">
             <div className="rounded-xl border border-[#2c1f1b] bg-[rgba(73,29,22,0.45)] p-4">
               <p className="text-[10px] uppercase tracking-[0.18em] text-[#8a776f]">
                 Resumen
@@ -965,6 +938,14 @@ export default function App() {
               <p className="mt-2 text-lg font-semibold text-[#f7b26e]">
                 {stats.published} publicados
               </p>
+            </div>
+            <div className="rounded-xl border border-[#20304e] bg-[#0c1730] p-4">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#7f90ad]">Pendientes</p>
+              <p className="mt-2 text-lg font-semibold text-amber-300">{stats.pending}</p>
+            </div>
+            <div className="rounded-xl border border-[#20304e] bg-[#0c1730] p-4">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-[#7f90ad]">Actualizar</p>
+              <p className="mt-2 text-lg font-semibold text-sky-300">{stats.update}</p>
             </div>
           </div>
         </aside>
@@ -978,7 +959,7 @@ export default function App() {
             </div>
 
             <section className={shellCard("p-5")}>
-              <div className="grid gap-4 lg:grid-cols-[1.15fr_0.75fr_0.75fr_0.8fr_auto]">
+              <div className="grid gap-4 xl:grid-cols-[1.1fr_0.75fr_0.65fr_0.7fr_0.8fr_auto]">
                 <div>
                   <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7f90ad]">
                     Buscar
@@ -999,7 +980,7 @@ export default function App() {
 
                 <div>
                   <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7f90ad]">
-                    Categoría / filtro
+                    Categoría
                   </label>
                   <select
                     value={categoryFilter}
@@ -1018,32 +999,43 @@ export default function App() {
 
                 <div>
                   <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7f90ad]">
-                    Ordenar
+                    Estado
                   </label>
-                  <div className="relative">
-                    <ArrowUpDown
-                      size={16}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-[#60708d]"
-                    />
-                    <select
-                      value={sortOrder}
-                      onChange={(e) => setSortOrder(e.target.value)}
-                      className={`${inputClass()} pl-9`}
-                    >
-                      <option value="newest">Más recientes</option>
-                      <option value="oldest">Más antiguos</option>
-                      <option value="year_desc">Año: más reciente</option>
-                      <option value="year_asc">Año: más antiguo</option>
-                      <option value="az">Nombre A-Z</option>
-                      <option value="za">Nombre Z-A</option>
-                    </select>
-                  </div>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className={inputClass()}
+                  >
+                    <option value="all">Todos</option>
+                    {STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7f90ad]">
+                    Orden
+                  </label>
+                  <select
+                    value={sortOption}
+                    onChange={(e) => setSortOption(e.target.value)}
+                    className={inputClass()}
+                  >
+                    <option value="priority_recent">Pendientes primero</option>
+                    <option value="recent">Año reciente</option>
+                    <option value="oldest">Año antiguo</option>
+                    <option value="az">Nombre A-Z</option>
+                    <option value="za">Nombre Z-A</option>
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   <StatCard label="Total" value={stats.total} />
                   <StatCard label="Portafolio" value={stats.published} />
-                  <StatCard label="Casos de éxito" value={stats.successCases} />
+                  <StatCard label="Éxito" value={stats.successCases} />
                 </div>
 
                 <div className="flex items-end justify-end gap-2">
@@ -1075,7 +1067,7 @@ export default function App() {
 
                           <div className="relative inline-flex">
                             <select
-                              value={project.status}
+                              value={normalizeStatus(project.status)}
                               onChange={(e) => changeStatus(project, e.target.value)}
                               className={`appearance-none rounded-full border px-3 py-1 pr-8 text-xs outline-none ${statusPillClass(project.status)}`}
                             >
