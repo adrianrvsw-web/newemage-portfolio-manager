@@ -14,6 +14,7 @@ import {
   Eye,
   Clipboard,
   Copy,
+  ArrowUpDown,
 } from "lucide-react";
 import { supabase } from "./supabase";
 
@@ -79,12 +80,12 @@ const TECHNOLOGY_OPTIONS = [
   "n8n",
 ];
 
-const STATUS_OPTIONS = ["Publicado", "Revisar", "Oculto", "Archivado"];
+const STATUS_OPTIONS = ["Publicado", "Pendiente", "Actualizar", "Archivado"];
 
 const emptyProject = {
   name: "",
   category: "corporativo",
-  status: "Revisar",
+  status: "Pendiente",
   successCase: false,
   inPortfolio: true,
   client: "",
@@ -125,14 +126,21 @@ function inputClass() {
   return "w-full rounded-xl border border-[#2a3a59] bg-[#101d38] px-3 py-2 text-sm text-[#eef4ff] outline-none placeholder:text-[#60708d] focus:border-[#3a4f75]";
 }
 
+function normalizeStatus(status) {
+  if (status === "Revisar") return "Pendiente";
+  if (status === "Oculto") return "Archivado";
+  return status || "Pendiente";
+}
+
 function statusPillClass(status) {
+  const normalizedStatus = normalizeStatus(status);
   const map = {
     Publicado: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
-    Revisar: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-    Oculto: "border-slate-500/30 bg-slate-500/10 text-slate-300",
+    Pendiente: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+    Actualizar: "border-sky-500/30 bg-sky-500/10 text-sky-300",
     Archivado: "border-rose-500/30 bg-rose-500/10 text-rose-300",
   };
-  return map[status] || "border-[#29395a] bg-[#101d38] text-[#c7d3ea]";
+  return map[normalizedStatus] || "border-[#29395a] bg-[#101d38] text-[#c7d3ea]";
 }
 
 function badgeClass(type = "default") {
@@ -343,7 +351,7 @@ function normalizeProject(project) {
     id: project.id,
     name: project.name ?? "",
     category: project.category ?? "corporativo",
-    status: project.status ?? "Revisar",
+    status: normalizeStatus(project.status),
     successCase: project.success_case ?? project.successCase ?? project.featured ?? false,
     inPortfolio: project.in_portfolio ?? project.inPortfolio ?? false,
     client: project.client ?? "",
@@ -355,6 +363,7 @@ function normalizeProject(project) {
     year: project.year ? String(project.year) : "",
     lastReview:
       project.last_review ?? project.lastReview ?? new Date().toISOString().slice(0, 10),
+    createdAt: project.created_at ?? project.createdAt ?? "",
   };
 }
 
@@ -364,7 +373,7 @@ function projectToDbPayload(project) {
     client: project.client,
     link: project.link || "",
     category: project.category,
-    status: project.status,
+    status: normalizeStatus(project.status),
     success_case: !!project.successCase,
     in_portfolio: !!project.inPortfolio,
     services: project.services || [],
@@ -687,6 +696,7 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("newest");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState(emptyProject);
@@ -715,7 +725,7 @@ export default function App() {
   }, []);
 
   const filteredProjects = useMemo(() => {
-    return projects.filter((project) => {
+    const filtered = projects.filter((project) => {
       const term = search.toLowerCase();
 
       const matchesSearch =
@@ -733,7 +743,31 @@ export default function App() {
 
       return matchesSearch && matchesCategory;
     });
-  }, [projects, search, categoryFilter]);
+
+    return [...filtered].sort((a, b) => {
+      if (sortOrder === "oldest") {
+        return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+      }
+
+      if (sortOrder === "year_desc") {
+        return Number(b.year || 0) - Number(a.year || 0);
+      }
+
+      if (sortOrder === "year_asc") {
+        return Number(a.year || 0) - Number(b.year || 0);
+      }
+
+      if (sortOrder === "az") {
+        return a.name.localeCompare(b.name, "es", { sensitivity: "base" });
+      }
+
+      if (sortOrder === "za") {
+        return b.name.localeCompare(a.name, "es", { sensitivity: "base" });
+      }
+
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+  }, [projects, search, categoryFilter, sortOrder]);
 
   const stats = useMemo(
     () => ({
@@ -762,7 +796,7 @@ export default function App() {
     setDraft({
       ...project,
       successCase: project.successCase ?? false,
-      status: project.status ?? "Revisar",
+      status: normalizeStatus(project.status),
       client: project.client ?? "",
       link: project.link ?? "",
       services: Array.isArray(project.services) ? project.services : [],
@@ -845,11 +879,12 @@ export default function App() {
 
   const togglePortfolio = async (project) => {
     const nextInPortfolio = !project.inPortfolio;
+    const currentStatus = normalizeStatus(project.status);
     const nextStatus = nextInPortfolio
-      ? project.status === "Oculto"
+      ? currentStatus === "Archivado"
         ? "Publicado"
-        : project.status
-      : "Oculto";
+        : currentStatus
+      : "Archivado";
 
     await updateProjectField(project.id, {
       inPortfolio: nextInPortfolio,
@@ -864,10 +899,11 @@ export default function App() {
   };
 
   const changeStatus = async (project, nextStatus) => {
-    const nextInPortfolio = nextStatus === "Oculto" ? false : project.inPortfolio;
+    const normalizedStatus = normalizeStatus(nextStatus);
+    const nextInPortfolio = normalizedStatus === "Archivado" ? false : project.inPortfolio;
 
     await updateProjectField(project.id, {
-      status: nextStatus,
+      status: normalizedStatus,
       inPortfolio: nextInPortfolio,
     });
   };
@@ -942,7 +978,7 @@ export default function App() {
             </div>
 
             <section className={shellCard("p-5")}>
-              <div className="grid gap-4 lg:grid-cols-[1.2fr_0.9fr_0.8fr_auto]">
+              <div className="grid gap-4 lg:grid-cols-[1.15fr_0.75fr_0.75fr_0.8fr_auto]">
                 <div>
                   <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7f90ad]">
                     Buscar
@@ -978,6 +1014,30 @@ export default function App() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7f90ad]">
+                    Ordenar
+                  </label>
+                  <div className="relative">
+                    <ArrowUpDown
+                      size={16}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-[#60708d]"
+                    />
+                    <select
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value)}
+                      className={`${inputClass()} pl-9`}
+                    >
+                      <option value="newest">Más recientes</option>
+                      <option value="oldest">Más antiguos</option>
+                      <option value="year_desc">Año: más reciente</option>
+                      <option value="year_asc">Año: más antiguo</option>
+                      <option value="az">Nombre A-Z</option>
+                      <option value="za">Nombre Z-A</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
