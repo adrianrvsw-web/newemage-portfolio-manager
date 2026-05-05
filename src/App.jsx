@@ -1130,7 +1130,7 @@ export default function App() {
                         )}
                       </div>
 
-                      <div className="flex flex-wrap gap-2 lg:justify-end">
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:w-full lg:max-w-[42rem] lg:justify-self-end">
                         <button
                           className={buttonClass("secondary")}
                           onClick={() => setSelectedProject(project)}
