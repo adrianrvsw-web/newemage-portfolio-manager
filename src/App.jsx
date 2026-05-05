@@ -106,7 +106,7 @@ function shellCard(extra = "") {
 
 function buttonClass(variant = "secondary") {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition border";
+    "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition border";
   const variants = {
     primary:
       "border-[#c56f2c] bg-[#c56f2c] text-white hover:bg-[#d17c39] hover:border-[#d17c39]",
@@ -1140,7 +1140,7 @@ export default function App() {
 
                         <button
                           className={cls(
-                            "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition border",
+                            "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition border",
                             project.inPortfolio
                               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15"
                               : "border-[#2a3a59] bg-[#101d38] text-[#d8e3f7] hover:bg-[#142444]"
@@ -1153,7 +1153,7 @@ export default function App() {
 
                         <button
                           className={cls(
-                            "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition border",
+                            "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition border",
                             project.successCase
                               ? "border-[#c56f2c]/40 bg-[#c56f2c]/10 text-[#ffca8a] hover:bg-[#c56f2c]/15"
                               : "border-[#2a3a59] bg-[#101d38] text-[#d8e3f7] hover:bg-[#142444]"
